@@ -1,9 +1,37 @@
 # minimal-habits-tracker
 
-## Technologies
+Aplicación de seguimiento de hábitos con almacenamiento local. Desarrollada para practicar integración de Backend y Frontend.
 
-## Run the Project
+## Tecnologías
 
-## Features
+### Backend
+    - `Node.js` 
+    - `Sqlite`
+    - `Express`
 
-## The Process
+### Frontend 
+    - `React`
+    - `Tailwindcss`
+
+## Ejecutar el proyecto
+
+1. Clonar el respositorio con: 
+
+## Características
+    - Registro visual de hábitos mediante mapa de actividad al estilo GitHub.
+    - Operaciones CRUD completas (Crear, Leer, Actualizar y Eliminar hábitos).
+    - Almacenamiento local persistente sin dependencias externas complejas.
+    - Interfaz limpia e intuitiva inspirada en el diseño de Binance.
+
+## Proceso de Desarrollo
+
+### Vibe code de Frontend
+Diseñé inicialmente los wireframes en papel. Luego compartí los bocetos a Claude junto con referencias visuales (interfaz de Binance) y funcionales (mapa de actividad de GitHub). Especifiqué el stack técnico (React, Tailwind CSS y Vite) para generar el diseño de los componentes y la estructura base.
+
+### Codeo de Backend
+Comencé la estructura desde cero para vincular la lógica con la interfaz previa. Definí el modelo de datos para gestionar el ciclo de vida de los hábitos (CRUD). Elegí SQLite como base de datos local pensando en una futura migración a dispositivos móviles. Para esta primera iteración se priorizó la simplicidad funcional, omitiendo capas como Helmet, JWT o encriptación.
+
+### Integración de Frontend y Backend
+Conecté los componentes de React con los endpoints de la API de Express mediante peticiones HTTP, validando la persistencia de los datos en la base de datos local y sincronizando la interfaz en tiempo real.
+
+## Imagen
