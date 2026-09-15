@@ -1,0 +1,17 @@
+-- sql.example
+-- Reference schema for the habits-tracker SQLite database.
+-- This file is documentation only; the actual table is created
+-- automatically by config/db.js on startup.
+
+-- Database: habits-tracker.db
+
+CREATE TABLE IF NOT EXISTS habit (
+  id     INTEGER PRIMARY KEY AUTOINCREMENT,  -- unique identifier
+  name   TEXT NOT NULL,                      -- habit name, e.g. "Drink water"
+  time   TEXT NOT NULL,                      -- scheduled time, e.g. "08:00"
+  status TEXT NOT NULL DEFAULT 'pending'     -- 'pending' | 'done' | 'skipped'
+);
+
+-- Example inserts
+INSERT INTO habit (name, time, status) VALUES ('Drink water', '08:00', 'pending');
+INSERT INTO habit (name, time, status) VALUES ('Read 10 pages', '21:00', 'done');

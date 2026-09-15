@@ -38,3 +38,10 @@ coverage/
 *.pid
 *.seed
 *.pid.lock
+
+# SQLite database files
+*.db
+*.db-journal
+*.db-wal
+*.db-shm
+habits-tracker.db
