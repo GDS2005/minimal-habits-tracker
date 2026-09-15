@@ -6,16 +6,45 @@ const db = new Database(dbPath);
 
 // Recommended pragma for better concurrency/performance
 db.pragma('journal_mode = WAL');
+db.pragma('foreign_keys = ON');
 
 const createHabitTable = `
 CREATE TABLE IF NOT EXISTS habit (
-  id     INTEGER PRIMARY KEY AUTOINCREMENT,
+  id     TEXT PRIMARY KEY NOT NULL,
   name   TEXT NOT NULL,
   time   TEXT NOT NULL,
+  color  TEXT NOT NULL DEFAULT 'gold',
   status TEXT NOT NULL DEFAULT 'pending'
 );
 `;
 
-db.exec(createHabitTable);
+const habitColumns = db.prepare('PRAGMA table_info(habit)').all();
+const needsMigration = habitColumns.length > 0 && (
+  habitColumns.find((column) => column.name === 'id')?.type !== 'TEXT' ||
+  !habitColumns.some((column) => column.name === 'color')
+);
+
+if (needsMigration) {
+  db.exec('ALTER TABLE habit RENAME TO habit_legacy');
+  db.exec(createHabitTable);
+  db.exec(`
+    INSERT INTO habit (id, name, time, color, status)
+    SELECT CAST(id AS TEXT), name, time, 'gold', status
+    FROM habit_legacy
+  `);
+  db.exec('DROP TABLE habit_legacy');
+} else {
+  db.exec(createHabitTable);
+}
+
+db.exec(`
+  CREATE TABLE IF NOT EXISTS habit_completion (
+    habit_id       TEXT NOT NULL,
+    completed_date TEXT NOT NULL,
+    completed_at   TEXT NOT NULL,
+    PRIMARY KEY (habit_id, completed_date),
+    FOREIGN KEY (habit_id) REFERENCES habit(id) ON DELETE CASCADE
+  );
+`);
 
 module.exports = db;

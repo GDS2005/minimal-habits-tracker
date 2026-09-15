@@ -4,16 +4,30 @@ import HabitForm from './components/HabitForm'
 import HabitList from './components/HabitList'
 import Heatmap from './components/Heatmap'
 import DayPanel from './components/DayPanel'
-import { loadHabits, saveHabits, loadLog, saveLog } from './utils/storage'
+import { completeHabit, createHabit, deleteHabit, getCompletions, getHabits, uncompleteHabit } from './utils/api'
 import { todayKey } from './utils/date'
 
 export default function App() {
-  const [habits, setHabits] = useState(() => loadHabits())
-  const [log, setLog] = useState(() => loadLog())
+  const [habits, setHabits] = useState([])
+  const [log, setLog] = useState({})
   const [selectedKey, setSelectedKey] = useState(todayKey())
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState('')
 
-  useEffect(() => saveHabits(habits), [habits])
-  useEffect(() => saveLog(log), [log])
+  useEffect(() => {
+    Promise.all([getHabits(), getCompletions()])
+      .then(([loadedHabits, completions]) => {
+        const loadedLog = {}
+        for (const entry of completions) {
+          if (!loadedLog[entry.date]) loadedLog[entry.date] = []
+          loadedLog[entry.date].push(entry)
+        }
+        setHabits(loadedHabits)
+        setLog(loadedLog)
+      })
+      .catch((requestError) => setError(requestError.message))
+      .finally(() => setLoading(false))
+  }, [])
 
   const today = todayKey()
   const todayEntries = log[today] || []
@@ -21,38 +35,57 @@ export default function App() {
 
   const streak = useMemo(() => computeStreak(log, habits.length), [log, habits.length])
 
-  function handleAdd({ name, time, color }) {
-    setHabits((prev) => [...prev, { id: crypto.randomUUID(), name, time, color }])
+  async function handleAdd({ name, time, color }) {
+    try {
+      const habit = await createHabit({ name, time, color })
+      setHabits((prev) => [...prev, habit])
+      setError('')
+    } catch (requestError) {
+      setError(requestError.message)
+    }
   }
 
-  function handleRemove(id) {
-    setHabits((prev) => prev.filter((h) => h.id !== id))
-    setLog((prev) => {
-      const next = {}
-      for (const [key, entries] of Object.entries(prev)) {
-        next[key] = entries.filter((e) => e.habitId !== id)
-      }
-      return next
-    })
+  async function handleRemove(id) {
+    try {
+      await deleteHabit(id)
+      setHabits((prev) => prev.filter((h) => h.id !== id))
+      setLog((prev) => Object.fromEntries(
+        Object.entries(prev).map(([key, entries]) => [key, entries.filter((entry) => entry.habitId !== id)])
+      ))
+      setError('')
+    } catch (requestError) {
+      setError(requestError.message)
+    }
   }
 
-  function handleToggle(id) {
+  async function handleToggle(id) {
     const habit = habits.find((h) => h.id === id)
     if (!habit) return
-    setLog((prev) => {
-      const dayEntries = prev[today] || []
-      const isDone = dayEntries.some((e) => e.habitId === id)
-      const nextDayEntries = isDone
-        ? dayEntries.filter((e) => e.habitId !== id)
-        : [...dayEntries, { habitId: id, name: habit.name, time: habit.time, completedAt: new Date().toISOString() }]
-      return { ...prev, [today]: nextDayEntries }
-    })
+    const isDone = (log[today] || []).some((entry) => entry.habitId === id)
+
+    try {
+      if (isDone) {
+        await uncompleteHabit(id, today)
+        setLog((prev) => ({
+          ...prev,
+          [today]: (prev[today] || []).filter((entry) => entry.habitId !== id),
+        }))
+      } else {
+        const entry = await completeHabit(id, today)
+        setLog((prev) => ({ ...prev, [today]: [...(prev[today] || []), entry] }))
+      }
+      setError('')
+    } catch (requestError) {
+      setError(requestError.message)
+    }
   }
 
   const selectedEntries = log[selectedKey] || []
 
   return (
     <div className="min-h-full">
+      {error && <p className="max-w-6xl mx-auto px-5 pt-4 text-sm text-down">{error}</p>}
+      {loading && <p className="max-w-6xl mx-auto px-5 pt-4 text-sm text-ink-500">Loading habits...</p>}
       <Header streak={streak} todayCount={todayEntries.length} totalHabits={habits.length} />
 
       <main className="max-w-6xl mx-auto px-5 py-6 grid grid-cols-1 lg:grid-cols-[280px_1fr] gap-5">
@@ -73,7 +106,7 @@ export default function App() {
       </main>
 
       <footer className="max-w-6xl mx-auto px-5 pb-8 pt-2">
-        <p className="text-[11px] text-ink-500 font-mono">Data stored locally in this browser.</p>
+        <p className="text-[11px] text-ink-500 font-mono">Data stored in the local SQLite database.</p>
       </footer>
     </div>
   )

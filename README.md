@@ -20,7 +20,7 @@ Aplicación de seguimiento de hábitos con almacenamiento local. Desarrollada pa
 ## Características
     - Registro visual de hábitos mediante mapa de actividad al estilo GitHub.
     - Operaciones CRUD completas (Crear, Leer, Actualizar y Eliminar hábitos).
-    - Almacenamiento local persistente sin dependencias externas complejas.
+    - Persistencia local en SQLite mediante una API REST.
     - Interfaz limpia e intuitiva inspirada en el diseño de Binance.
 
 ## Proceso de Desarrollo
