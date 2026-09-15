@@ -3,7 +3,8 @@
   "version": "0.0.1",
   "private": true,
   "scripts": {
-    "start": "node --env-file=.env app.js"
+    "start": "node --env-file=.env server.js",
+    "test": "node --test"
   },
   "dependencies": {
     "better-sqlite3": "^13.0.3",

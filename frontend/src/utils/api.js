@@ -29,6 +29,13 @@ export function createHabit(habit) {
   })
 }
 
+export function updateHabit(id, habit) {
+  return request(`/${encodeURIComponent(id)}`, {
+    method: 'PUT',
+    body: JSON.stringify(habit),
+  })
+}
+
 export function deleteHabit(id) {
   return request(`/${encodeURIComponent(id)}`, { method: 'DELETE' })
 }

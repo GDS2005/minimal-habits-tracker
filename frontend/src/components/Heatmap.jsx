@@ -20,7 +20,7 @@ const LEVEL_CLASS = [
   'bg-gold', // 4 perfect day
 ]
 
-export default function Heatmap({ log, totalHabits, selectedKey, onSelectDay }) {
+export default function Heatmap({ completionsByDate, totalHabits, selectedKey, onSelectDay }) {
   const columns = useMemo(() => buildWeekGrid(53), [])
   const monthLabels = useMemo(() => monthLabelsForGrid(columns), [columns])
   const today = todayKey()
@@ -64,7 +64,7 @@ export default function Heatmap({ log, totalHabits, selectedKey, onSelectDay }) 
             <div key={ci} className="flex flex-col gap-[3px]">
               {col.map((date, di) => {
                 const key = toKey(date)
-                const entries = log[key] || []
+                const entries = completionsByDate[key] || []
                 const level = levelFor(entries.length, totalHabits)
                 const isFuture = date > new Date()
                 const isToday = key === today

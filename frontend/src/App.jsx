@@ -4,15 +4,17 @@ import HabitForm from './components/HabitForm'
 import HabitList from './components/HabitList'
 import Heatmap from './components/Heatmap'
 import DayPanel from './components/DayPanel'
-import { completeHabit, createHabit, deleteHabit, getCompletions, getHabits, uncompleteHabit } from './utils/api'
+import { completeHabit, createHabit, deleteHabit, getCompletions, getHabits, uncompleteHabit, updateHabit } from './utils/api'
 import { todayKey } from './utils/date'
 
 export default function App() {
   const [habits, setHabits] = useState([])
-  const [log, setLog] = useState({})
+  const [completionsByDate, setCompletionsByDate] = useState({})
   const [selectedKey, setSelectedKey] = useState(todayKey())
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
+  const [pendingAction, setPendingAction] = useState(null)
+  const [editingHabit, setEditingHabit] = useState(null)
 
   useEffect(() => {
     Promise.all([getHabits(), getCompletions()])
@@ -23,64 +25,101 @@ export default function App() {
           loadedLog[entry.date].push(entry)
         }
         setHabits(loadedHabits)
-        setLog(loadedLog)
+        setCompletionsByDate(loadedLog)
       })
       .catch((requestError) => setError(requestError.message))
       .finally(() => setLoading(false))
   }, [])
 
   const today = todayKey()
-  const todayEntries = log[today] || []
+  const todayEntries = completionsByDate[today] || []
   const doneIds = useMemo(() => new Set(todayEntries.map((e) => e.habitId)), [todayEntries])
 
-  const streak = useMemo(() => computeStreak(log, habits.length), [log, habits.length])
+  const streak = useMemo(() => computeStreak(completionsByDate, habits.length), [completionsByDate, habits.length])
 
   async function handleAdd({ name, time, color }) {
+    setPendingAction('add')
     try {
       const habit = await createHabit({ name, time, color })
       setHabits((prev) => [...prev, habit])
       setError('')
+      return true
     } catch (requestError) {
       setError(requestError.message)
+      return false
+    } finally {
+      setPendingAction(null)
     }
   }
 
   async function handleRemove(id) {
+    if (pendingAction) return
+    if (!window.confirm('Delete this habit and all of its completion history?')) return
+    setPendingAction(`remove:${id}`)
     try {
       await deleteHabit(id)
       setHabits((prev) => prev.filter((h) => h.id !== id))
-      setLog((prev) => Object.fromEntries(
+      setCompletionsByDate((prev) => Object.fromEntries(
         Object.entries(prev).map(([key, entries]) => [key, entries.filter((entry) => entry.habitId !== id)])
       ))
       setError('')
     } catch (requestError) {
       setError(requestError.message)
+    } finally {
+      setPendingAction(null)
+    }
+  }
+
+  async function handleUpdate(id, changes) {
+    setPendingAction(`update:${id}`)
+    try {
+      const updatedHabit = await updateHabit(id, changes)
+      setHabits((prev) => prev.map((habit) => habit.id === id ? updatedHabit : habit))
+      setCompletionsByDate((prev) => Object.fromEntries(
+        Object.entries(prev).map(([key, entries]) => [
+          key,
+          entries.map((entry) => entry.habitId === id
+            ? { ...entry, name: updatedHabit.name, time: updatedHabit.time, color: updatedHabit.color }
+            : entry),
+        ])
+      ))
+      setEditingHabit(null)
+      setError('')
+      return true
+    } catch (requestError) {
+      setError(requestError.message)
+      return false
+    } finally {
+      setPendingAction(null)
     }
   }
 
   async function handleToggle(id) {
     const habit = habits.find((h) => h.id === id)
-    if (!habit) return
-    const isDone = (log[today] || []).some((entry) => entry.habitId === id)
+    if (!habit || pendingAction) return
+    const isDone = (completionsByDate[today] || []).some((entry) => entry.habitId === id)
 
+    setPendingAction(`toggle:${id}`)
     try {
       if (isDone) {
         await uncompleteHabit(id, today)
-        setLog((prev) => ({
+        setCompletionsByDate((prev) => ({
           ...prev,
           [today]: (prev[today] || []).filter((entry) => entry.habitId !== id),
         }))
       } else {
         const entry = await completeHabit(id, today)
-        setLog((prev) => ({ ...prev, [today]: [...(prev[today] || []), entry] }))
+        setCompletionsByDate((prev) => ({ ...prev, [today]: [...(prev[today] || []), entry] }))
       }
       setError('')
     } catch (requestError) {
       setError(requestError.message)
+    } finally {
+      setPendingAction(null)
     }
   }
 
-  const selectedEntries = log[selectedKey] || []
+  const selectedEntries = completionsByDate[selectedKey] || []
 
   return (
     <div className="min-h-full">
@@ -90,18 +129,31 @@ export default function App() {
 
       <main className="max-w-6xl mx-auto px-5 py-6 grid grid-cols-1 lg:grid-cols-[280px_1fr] gap-5">
         <aside className="flex flex-col gap-5 order-2 lg:order-1">
-          <HabitForm onAdd={handleAdd} />
+          <HabitForm
+            editingHabit={editingHabit}
+            onAdd={handleAdd}
+            onUpdate={handleUpdate}
+            onCancel={() => setEditingHabit(null)}
+            isSubmitting={Boolean(pendingAction)}
+          />
           <DayPanel selectedKey={selectedKey} entries={selectedEntries} totalHabits={habits.length} />
         </aside>
 
         <section className="flex flex-col gap-5 order-1 lg:order-2">
           <Heatmap
-            log={log}
+            completionsByDate={completionsByDate}
             totalHabits={habits.length}
             selectedKey={selectedKey}
             onSelectDay={setSelectedKey}
           />
-          <HabitList habits={habits} doneIds={doneIds} onToggle={handleToggle} onRemove={handleRemove} />
+          <HabitList
+            habits={habits}
+            doneIds={doneIds}
+            onToggle={handleToggle}
+            onRemove={handleRemove}
+            onEdit={setEditingHabit}
+            pendingAction={pendingAction}
+          />
         </section>
       </main>
 
@@ -112,7 +164,7 @@ export default function App() {
   )
 }
 
-function computeStreak(log, totalHabits) {
+function computeStreak(completionsByDate, totalHabits) {
   if (totalHabits === 0) return 0
   let streak = 0
   const cursor = new Date()
@@ -126,13 +178,13 @@ function computeStreak(log, totalHabits) {
     return `${y}-${m}-${day}`
   }
 
-  const todaysCount = (log[key(cursor)] || []).length
+  const todaysCount = (completionsByDate[key(cursor)] || []).length
   if (todaysCount === 0) {
     cursor.setDate(cursor.getDate() - 1)
   }
 
   while (true) {
-    const entries = log[key(cursor)] || []
+    const entries = completionsByDate[key(cursor)] || []
     if (entries.length > 0) {
       streak += 1
       cursor.setDate(cursor.getDate() - 1)

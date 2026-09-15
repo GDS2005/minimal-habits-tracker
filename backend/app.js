@@ -1,19 +1,22 @@
-var createError = require('http-errors');
-var express = require('express');
-var cookieParser = require('cookie-parser');
-var logger = require('morgan');
-var { createServer } = require('node:http');
+const createError = require('http-errors');
+const express = require('express');
+const cookieParser = require('cookie-parser');
+const logger = require('morgan');
 
 require('./config/db'); // initializes SQLite connection + creates table
 
-var indexRouter = require('./routes/index');
+const indexRouter = require('./routes/index');
 
-var app = express();
+const app = express();
 
 app.use(logger('dev'));
-app.use(express.json());
+app.use(express.json({ limit: '10kb' }));
 app.use(express.urlencoded({ extended: false }));
 app.use(cookieParser());
+
+app.get('/health', (req, res) => {
+  res.json({ status: 'ok' });
+});
 
 app.use('/v1/habits', indexRouter);
 
@@ -25,16 +28,10 @@ app.use(function (err, req, res, next) {
   const status = err.status || 500;
   res.status(status).json({
     error: {
+      code: err.code || (status === 404 ? 'NOT_FOUND' : 'INTERNAL_ERROR'),
       message: err.message,
-      ...(req.app.get('env') === 'development' && { stack: err.stack }),
     },
   });
-});
-
-const server = createServer(app);
-
-server.listen(process.env.PORT, '127.0.0.1', () => {
-  console.log(`Listening on ${process.env.PORT}`);
 });
 
 module.exports = app;

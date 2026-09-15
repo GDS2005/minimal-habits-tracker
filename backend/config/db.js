@@ -1,7 +1,7 @@
 const path = require('path');
 const Database = require('better-sqlite3');
 
-const dbPath = path.join(__dirname, '..', 'habits-tracker.db');
+const dbPath = process.env.DB_PATH || path.join(__dirname, '..', 'habits-tracker.db');
 const db = new Database(dbPath);
 
 // Recommended pragma for better concurrency/performance
@@ -25,14 +25,16 @@ const needsMigration = habitColumns.length > 0 && (
 );
 
 if (needsMigration) {
-  db.exec('ALTER TABLE habit RENAME TO habit_legacy');
-  db.exec(createHabitTable);
-  db.exec(`
-    INSERT INTO habit (id, name, time, color, status)
-    SELECT CAST(id AS TEXT), name, time, 'gold', status
-    FROM habit_legacy
-  `);
-  db.exec('DROP TABLE habit_legacy');
+  db.transaction(() => {
+    db.exec('ALTER TABLE habit RENAME TO habit_legacy');
+    db.exec(createHabitTable);
+    db.exec(`
+      INSERT INTO habit (id, name, time, color, status)
+      SELECT CAST(id AS TEXT), name, time, 'gold', status
+      FROM habit_legacy
+    `);
+    db.exec('DROP TABLE habit_legacy');
+  })();
 } else {
   db.exec(createHabitTable);
 }
@@ -45,6 +47,11 @@ db.exec(`
     PRIMARY KEY (habit_id, completed_date),
     FOREIGN KEY (habit_id) REFERENCES habit(id) ON DELETE CASCADE
   );
+`);
+
+db.exec(`
+  CREATE INDEX IF NOT EXISTS idx_habit_completion_date
+  ON habit_completion(completed_date);
 `);
 
 module.exports = db;

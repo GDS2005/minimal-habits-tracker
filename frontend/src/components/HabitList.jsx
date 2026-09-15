@@ -5,7 +5,7 @@ const COLOR_DOT = {
   violet: 'bg-violet-400',
 }
 
-export default function HabitList({ habits, doneIds, onToggle, onRemove }) {
+export default function HabitList({ habits, doneIds, onToggle, onRemove, onEdit, pendingAction }) {
   if (habits.length === 0) {
     return (
       <div className="bg-base-850 border border-base-700 border-dashed rounded-lg p-8 text-center">
@@ -23,25 +23,34 @@ export default function HabitList({ habits, doneIds, onToggle, onRemove }) {
         <span className="text-right pr-1">Status</span>
       </div>
       <ul>
-        {habits.map((h) => {
-          const done = doneIds.has(h.id)
+        {habits.map((habit) => {
+          const done = doneIds.has(habit.id)
           return (
             <li
-              key={h.id}
+              key={habit.id}
               className="group grid grid-cols-[1fr_auto_auto] gap-3 items-center px-4 py-3 border-b border-base-700 last:border-b-0 hover:bg-base-800/60 transition-colors"
             >
               <div className="flex items-center gap-2.5 min-w-0">
-                <span className={`w-2 h-2 rounded-full shrink-0 ${COLOR_DOT[h.color] || COLOR_DOT.gold}`} />
+                <span className={`w-2 h-2 rounded-full shrink-0 ${COLOR_DOT[habit.color] || COLOR_DOT.gold}`} />
                 <span className={`text-sm truncate ${done ? 'text-ink-500 line-through' : 'text-ink-100'}`}>
-                  {h.name}
+                  {habit.name}
                 </span>
               </div>
 
-              <span className="text-xs font-mono text-ink-500 text-right">{h.time}</span>
+              <span className="text-xs font-mono text-ink-500 text-right">{habit.time}</span>
 
               <div className="flex items-center justify-end gap-2">
                 <button
-                  onClick={() => onToggle(h.id)}
+                  onClick={() => onEdit(habit)}
+                  disabled={Boolean(pendingAction)}
+                  className="text-xs text-ink-500 hover:text-ink-100 disabled:opacity-50"
+                  aria-label={`Edit ${habit.name}`}
+                >
+                  Edit
+                </button>
+                <button
+                  onClick={() => onToggle(habit.id)}
+                  disabled={Boolean(pendingAction)}
                   className={`text-xs font-semibold rounded-md px-3 py-1.5 transition-colors ${
                     done
                       ? 'bg-up/15 text-up border border-up/40'
@@ -51,9 +60,10 @@ export default function HabitList({ habits, doneIds, onToggle, onRemove }) {
                   {done ? 'Done ✓' : 'Mark done'}
                 </button>
                 <button
-                  onClick={() => onRemove(h.id)}
+                  onClick={() => onRemove(habit.id)}
+                  disabled={Boolean(pendingAction)}
                   className="opacity-0 group-hover:opacity-100 text-ink-500 hover:text-down transition-opacity text-xs px-1.5"
-                  aria-label={`Remove ${h.name}`}
+                  aria-label={`Remove ${habit.name}`}
                   title="Remove habit"
                 >
                   ✕

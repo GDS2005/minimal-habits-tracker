@@ -15,7 +15,43 @@ Aplicación de seguimiento de hábitos con almacenamiento local. Desarrollada pa
 
 ## Ejecutar el proyecto
 
-1. Clonar el respositorio con: 
+Backend:
+
+```bash
+cd backend
+npm install
+npm start
+```
+
+Frontend, in another terminal:
+
+```bash
+cd frontend
+npm install
+npm run dev
+```
+
+## Run with Docker Compose
+
+From the project root:
+
+```bash
+docker compose up --build
+```
+
+Open `http://localhost:5173`. The API is available at `http://localhost:3000`, and the SQLite database is persisted in the `backend_data` Docker volume.
+
+Stop the services with:
+
+```bash
+docker compose down
+```
+
+To remove the persisted database as well:
+
+```bash
+docker compose down -v
+```
 
 ## Características
     - Registro visual de hábitos mediante mapa de actividad al estilo GitHub.

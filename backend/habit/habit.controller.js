@@ -1,14 +1,6 @@
 const db = require('../config/db');
 const { randomUUID } = require('node:crypto');
-
-const VALID_COLORS = new Set(['gold', 'up', 'sky', 'violet']);
-const VALID_STATUSES = new Set(['pending', 'done', 'skipped']);
-
-function isDateKey(value) {
-  if (!/^\d{4}-\d{2}-\d{2}$/.test(value)) return false;
-  const date = new Date(`${value}T00:00:00.000Z`);
-  return !Number.isNaN(date.getTime()) && date.toISOString().slice(0, 10) === value;
-}
+const { validateDateKey, validateHabitInput } = require('./habit.validation');
 
 // GET /v1/habits
 function getAllHabits(req, res) {
@@ -29,25 +21,13 @@ function getHabitById(req, res) {
 
 // POST /v1/habits
 function createHabit(req, res) {
-  const { id, name, time, color, status } = req.body;
-
-  if (!name || !time) {
-    return res.status(400).json({ error: { message: 'name and time are required' } });
-  }
-
-  if (color && !VALID_COLORS.has(color)) {
-    return res.status(400).json({ error: { message: 'invalid color' } });
-  }
-
-  if (status && !VALID_STATUSES.has(status)) {
-    return res.status(400).json({ error: { message: 'invalid status' } });
-  }
+  const { name, time, color, status } = validateHabitInput(req.body);
 
   const stmt = db.prepare(
     'INSERT INTO habit (id, name, time, color, status) VALUES (?, ?, ?, ?, ?)'
   );
-  const habitId = id || randomUUID();
-  stmt.run(habitId, name.trim(), time, color || 'gold', status || 'pending');
+  const habitId = randomUUID();
+  stmt.run(habitId, name, time, color || 'gold', status || 'pending');
 
   const newHabit = db.prepare('SELECT * FROM habit WHERE id = ?').get(habitId);
   res.status(201).json(newHabit);
@@ -55,28 +35,21 @@ function createHabit(req, res) {
 
 // PUT /v1/habits/:id
 function updateHabit(req, res) {
-  const { name, time, color, status } = req.body;
   const existing = db.prepare('SELECT * FROM habit WHERE id = ?').get(req.params.id);
 
   if (!existing) {
     return res.status(404).json({ error: { message: 'Habit not found' } });
   }
 
-  if (color && !VALID_COLORS.has(color)) {
-    return res.status(400).json({ error: { message: 'invalid color' } });
-  }
-
-  if (status && !VALID_STATUSES.has(status)) {
-    return res.status(400).json({ error: { message: 'invalid status' } });
-  }
+  const input = validateHabitInput(req.body, { partial: true });
 
   db.prepare(
     'UPDATE habit SET name = ?, time = ?, color = ?, status = ? WHERE id = ?'
   ).run(
-    name?.trim() || existing.name,
-    time ?? existing.time,
-    color ?? existing.color,
-    status ?? existing.status,
+    input.name ?? existing.name,
+    input.time ?? existing.time,
+    input.color ?? existing.color,
+    input.status ?? existing.status,
     req.params.id
   );
 
@@ -116,9 +89,7 @@ function getAllCompletions(req, res) {
 // POST /v1/habits/:id/completions/:date
 function completeHabit(req, res) {
   const { id, date } = req.params;
-  if (!isDateKey(date)) {
-    return res.status(400).json({ error: { message: 'date must use YYYY-MM-DD' } });
-  }
+  validateDateKey(date);
 
   const habit = db.prepare('SELECT * FROM habit WHERE id = ?').get(id);
   if (!habit) {
@@ -145,9 +116,7 @@ function completeHabit(req, res) {
 // DELETE /v1/habits/:id/completions/:date
 function uncompleteHabit(req, res) {
   const { id, date } = req.params;
-  if (!isDateKey(date)) {
-    return res.status(400).json({ error: { message: 'date must use YYYY-MM-DD' } });
-  }
+  validateDateKey(date);
 
   const result = db.prepare(
     'DELETE FROM habit_completion WHERE habit_id = ? AND completed_date = ?'
